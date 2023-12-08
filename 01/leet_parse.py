@@ -1,6 +1,5 @@
 def main():
     with open("input.txt", "r") as fh:
-
         final_sum = 0
 
         for line in fh.readlines():
