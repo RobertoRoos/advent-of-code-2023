@@ -8,7 +8,6 @@ def numbers_to_set(txt: str) -> Set[int]:
 
 
 def main():
-
     total_points = 0
 
     with open("input.txt", "r") as fh:
@@ -19,7 +18,9 @@ def main():
             numbers_winning = numbers_to_set(numbers_left)
             numbers_card = numbers_to_set(numbers_right)
 
-            wins = len(numbers_winning & numbers_card)  # Get length of the union of both sets
+            wins = len(
+                numbers_winning & numbers_card
+            )  # Get length of the union of both sets
 
             if wins > 0:
                 total_points += 2 ** (wins - 1)
@@ -27,5 +28,5 @@ def main():
     print("Total points worth:", total_points)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
