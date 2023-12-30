@@ -1,5 +1,4 @@
-from collections import defaultdict
-from typing import List, Dict, Tuple
+from typing import Dict
 
 
 def main():
