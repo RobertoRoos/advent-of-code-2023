@@ -43,5 +43,5 @@ def main():
     print("Number of super options:", number_of_options)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
