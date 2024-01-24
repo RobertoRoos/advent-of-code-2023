@@ -21,6 +21,8 @@ CardOccurrence = namedtuple("CardOccurrence", ["card", "count"])
 class Hand:
     """Class for a set of 5 cards."""
 
+    JOKERS = False
+
     CARDS = {
         "T": 10,
         "J": 11,
@@ -56,6 +58,20 @@ class Hand:
         """Find hand set for given hand."""
 
         card_counts = self.get_card_occurrences(self.cards)
+
+        if self.JOKERS:
+            i = 0
+            while i < len(card_counts):
+                if card_counts[i].card == 1 and len(card_counts) > 1:  # = "J"
+                    # For a joker, add its count to the highest set instead:
+                    idx = 0 if i > 0 else 1
+                    new_count = card_counts[idx].count + card_counts[i].count
+                    card_counts[idx] = card_counts[idx]._replace(count=new_count)
+                    card_counts.pop(i)
+                else:
+                    i += 1
+
+                continue
 
         if card_counts[0].count == 5:
             return HandType.FIVE_OF_A_KIND
@@ -94,7 +110,8 @@ class Hand:
             card_counts[card] += 1
 
         return [
-            CardOccurrence(k, v) for k, v in sorted(card_counts.items(), key=lambda x: x[1], reverse=True)
+            CardOccurrence(k, v)
+            for k, v in sorted(card_counts.items(), key=lambda x: x[1], reverse=True)
         ]
 
     def __lt__(self, other: "Hand"):
@@ -118,11 +135,16 @@ class Hand:
         raise ValueError(f"Cards `{self}` and `{other}` are the same!")
 
 
-for _i in range(1, 10):
+for _i in range(2, 10):
     Hand.CARDS[str(_i)] = _i
 
 
 def main():
+    Hand.JOKERS = True
+
+    if Hand.JOKERS:
+        Hand.CARDS["J"] = 1  # Lowest instead!
+
     hands_and_bids: List[Tuple[Hand, int]] = []
 
     with open("input.txt", "r") as fh:
