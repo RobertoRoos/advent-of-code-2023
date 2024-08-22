@@ -2,6 +2,9 @@ from typing import Optional, Set, Dict, Tuple, List
 from enum import Enum
 
 
+Coord = Tuple[int, int]  # (row, column)
+
+
 class Direction(Enum):
     UP = 1
     RIGHT = 2
@@ -19,8 +22,10 @@ class Tile:
     Coordinates are considered as (row, column), 0-indexed.
     """
 
-    # Tiles by (row, column)
-    MAZE: Dict[Tuple[int, int], "Tile"] = {}
+    # Tiles by coordinates
+    MAZE: Dict[Coord, "Tile"] = {}
+    ROWS: int = 0
+    COLS: int = 0
 
     def __init__(self, row: int, col: int, shape: str):
         self.row = row
@@ -48,7 +53,16 @@ class Tile:
         else:
             raise ValueError(f"Unrecognized shape `{shape}`")
 
-        self.MAZE[self.coordinates] = self
+        self.add_to_maze(self)
+
+    @classmethod
+    def add_to_maze(cls, tile):
+        row, col = tile.coordinates
+        if row + 1 > cls.ROWS:
+            cls.ROWS = row + 1
+        if col + 1 > cls.COLS:
+            cls.COLS = col + 1
+        cls.MAZE[tile.coordinates] = tile
 
     def __repr__(self) -> str:
         return f"<Tile ({self.row},{self.col}), '{self.shape}'>"
@@ -76,7 +90,7 @@ class Tile:
         return neighbour
 
     @property
-    def coordinates(self) -> Tuple[int, int]:
+    def coordinates(self) -> Coord:
         return self.row, self.col
 
     @classmethod
@@ -118,6 +132,49 @@ class Tile:
 
         raise RuntimeError(f"Could not find next in sequence")
 
+    @classmethod
+    def get_enclosed_count(cls, loop: List["Tile"]) -> int:
+        """Get number of tiles fully enclosed by given loop."""
+        loop_by_coordinates: Dict[Coord, Tile] = {tile.coordinates: tile for tile in loop}
+
+        count = 0  # Number of surrounded tiles
+
+        row_start = cls.ROWS - 1
+        col_start = 0
+
+        # Walk over all diagonals, from the bottom left to top right:
+        while col_start < cls.COLS:
+            col = col_start
+            row = row_start
+
+            inside = False  # Always start outside area
+
+            while row < cls.ROWS and col < cls.COLS:
+
+                tile = loop_by_coordinates.get((row, col), None)
+                if tile is not None:
+                    if (Direction.LEFT in tile.ports and Direction.DOWN in tile.ports or
+                            Direction.UP in tile.ports and Direction.RIGHT in tile.ports):
+                        pass  # Hit an empty corner, remain inside or outside
+                    else:
+                        inside = not inside  # Flip inside / outside state
+                else:
+                    if inside:
+                        count += 1
+
+                row += 1
+                col += 1
+
+            if row_start > 0:
+                row_start -= 1
+            else:
+                col_start += 1
+
+        # Scanning over diagonals is odd, but it saves us from awkward cases when scanning horizontal or vertical
+        # when the scan follows the perimeter
+
+        return count
+
     def __eq__(self, other):
         return self.row == other.row and self.col == other.col
 
@@ -140,7 +197,9 @@ def main():
 
     print(f"Biggest distance: {max_steps}")
 
-    return
+    size = Tile.get_enclosed_count(loop)
+
+    print(f"Enclosed tiles: {size}")
 
 
 if __name__ == "__main__":
