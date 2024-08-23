@@ -135,7 +135,9 @@ class Tile:
     @classmethod
     def get_enclosed_count(cls, loop: List["Tile"]) -> int:
         """Get number of tiles fully enclosed by given loop."""
-        loop_by_coordinates: Dict[Coord, Tile] = {tile.coordinates: tile for tile in loop}
+        loop_by_coordinates: Dict[Coord, Tile] = {
+            tile.coordinates: tile for tile in loop
+        }
 
         count = 0  # Number of surrounded tiles
 
@@ -153,8 +155,12 @@ class Tile:
 
                 tile = loop_by_coordinates.get((row, col), None)
                 if tile is not None:
-                    if (Direction.LEFT in tile.ports and Direction.DOWN in tile.ports or
-                            Direction.UP in tile.ports and Direction.RIGHT in tile.ports):
+                    if (
+                        Direction.LEFT in tile.ports
+                        and Direction.DOWN in tile.ports
+                        or Direction.UP in tile.ports
+                        and Direction.RIGHT in tile.ports
+                    ):
                         pass  # Hit an empty corner, remain inside or outside
                     else:
                         inside = not inside  # Flip inside / outside state
