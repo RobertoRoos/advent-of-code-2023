@@ -30,6 +30,9 @@ def check_and_shorten_arrangement(
     idx_broken_start = 0  # Index in `states` of the start of a broken sequence
     for i, state in enumerate(states):
         if state == State.UNKNOWN:
+            if count > 0:
+                if idx_numbers >= len(numbers) or count > numbers[idx_numbers]:
+                    return None  # Already not matching, abort this tree
             break
 
         if state == State.BROKEN:
@@ -39,7 +42,7 @@ def check_and_shorten_arrangement(
         if state == State.OPERATIONAL or i == len(states) - 1:
             if count > 0:
                 if idx_numbers >= len(numbers) or count != numbers[idx_numbers]:
-                    return None  # Already not matching, abort this three
+                    return None  # Already not matching, abort this tree
                 idx_numbers += 1
                 count = 0
             idx_broken_start = i + 1
@@ -85,7 +88,7 @@ def main():
 
     part_2 = True
 
-    with open("input_example.txt", "r") as fh:
+    with open("input.txt", "r") as fh:
         lines = 0
         while line := fh.readline():
             states_str, _, numbers_str = line.strip().partition(" ")
@@ -98,6 +101,7 @@ def main():
             numbers = [int(s) for s in numbers_str.split(",")]
             arrangements = get_number_of_arrangements_recursively(states, numbers)
             total_arrangements += arrangements
+            print("Line:", lines)
             lines += 1
 
     print("Total:", total_arrangements)  # Works, but actually too slow
