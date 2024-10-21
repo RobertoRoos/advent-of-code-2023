@@ -1,6 +1,5 @@
 from enum import Enum
 from typing import Tuple, List, Union
-from itertools import product
 
 
 class State(Enum):
@@ -19,89 +18,86 @@ class State(Enum):
 StatesList = Union[List[State], Tuple[State]]
 
 
-# def get_arrangement_numbers(states: StatesList) -> List[int]:
-#     """Take in a possible row of states and return the corresponding counts."""
-#     numbers = []
-#     count = 0
-#     for i, state in enumerate(states):
-#         if state == State.BROKEN:
-#             count += 1  # Count consecutive broken ones
-#
-#         if count > 0 and (state != State.BROKEN or i == len(states) - 1):
-#             numbers.append(count)
-#             count = 0
-#
-#     return numbers
+def check_and_shorten_arrangement(
+    states: StatesList, numbers: List[int]
+) -> Union[None, Tuple[List[State], List[int]]]:
+    """Remove starts of states and numbers that are known and match.
 
-
-def check_arrangement_numbers(states: StatesList, numbers_check: List[int]) -> bool:
-    """Check if a states arrangement fits a numbers list."""
-    count = 0
-    next_index = 0
+    Returns `None` if it doesn't match at all.
+    """
+    count = 0  # Consecutive broken ones
+    idx_numbers = 0  # Index in `numbers`
+    idx_broken_start = 0  # Index in `states` of the start of a broken sequence
     for i, state in enumerate(states):
+        if state == State.UNKNOWN:
+            break
+
         if state == State.BROKEN:
-            count += 1  # Count consecutive broken ones
+            if count == 0:
+                idx_broken_start = i
+            count += 1
+        if state == State.OPERATIONAL or i == len(states) - 1:
+            if count > 0:
+                if idx_numbers >= len(numbers) or count != numbers[idx_numbers]:
+                    return None  # Already not matching, abort this three
+                idx_numbers += 1
+                count = 0
+            idx_broken_start = i + 1
 
-        if count > 0 and (state != State.BROKEN or i == len(states) - 1):
-            if next_index >= len(numbers_check):
-                return False  # Different amount of numbers, not a match
+    new_states, new_numbers = states[idx_broken_start:], numbers[idx_numbers:]
 
-            if numbers_check[next_index] != count:
-                return False  # Mismatch
+    if len(new_states) < sum(new_numbers) + len(new_numbers) - 1:
+        return None  # No way we could still fit a valid sequence in here
 
-            count = 0
-            next_index += 1
-
-    return len(numbers_check) == next_index
-
-
-def get_arrangement_numbers(states: StatesList) -> List[int]:
-    """Take in a possible row of states and return the corresponding counts."""
-    numbers = []
-    count = 0
-    for i, state in enumerate(states):
-        if state == State.BROKEN:
-            count += 1  # Count consecutive broken ones
-
-        if count > 0 and (state != State.BROKEN or i == len(states) - 1):
-            numbers.append(count)
-            count = 0
-
-    return numbers
+    return new_states, new_numbers  # Could well be empty
 
 
-def get_number_of_arrangements(states: StatesList, numbers: List[int]) -> int:
-    """Return the number of possible arrangement per line."""
-    options = 0
+def get_number_of_arrangements_recursively(
+    states: StatesList, numbers: List[int]
+) -> int:
+    """Substitute remaining unknowns in `states` to find possible configurations."""
+    arrangements = 0
 
-    # Get indices of unknown entries:
-    idx_unknown = [i for i, s in enumerate(states) if s == State.UNKNOWN]
+    result = check_and_shorten_arrangement(states, numbers)
+    if result is None:
+        return arrangements  # Abort this tree, it already doesn't work
 
-    # Loop over all possible options for this list:
-    for comb in product([State.BROKEN, State.OPERATIONAL], repeat=len(idx_unknown)):
-        states_option = states[:]  # Deep copy
-        for idx, new_state in zip(idx_unknown, comb):
-            states_option[idx] = new_state
-        if check_arrangement_numbers(states_option, numbers):
-            options += 1
+    new_states, new_numbers = result
 
-    if options == 0:
-        raise RuntimeError("Number of options cannot be zero")
+    # Find the first unknown state:
+    try:
+        idx = next(i for i, s in enumerate(new_states) if s == State.UNKNOWN)
+    except StopIteration:
+        return 1  # No wildcards left, only one option left
+    else:
+        for option in (State.OPERATIONAL, State.BROKEN):
+            new_states[idx] = option  # No need to copy, as `check_...()` does that
+            arrangements += get_number_of_arrangements_recursively(
+                new_states, new_numbers
+            )
 
-    return options
+    return arrangements
 
 
 def main():
 
     total_arrangements = 0
 
-    with open("input.txt", "r") as fh:
+    part_2 = True
+
+    with open("input_example.txt", "r") as fh:
         lines = 0
         while line := fh.readline():
-            states_str, _, numbers_str = line.partition(" ")
+            states_str, _, numbers_str = line.strip().partition(" ")
+
+            if part_2:
+                states_str = "?".join([states_str] * 5)
+                numbers_str = ",".join([numbers_str] * 5)
+
             states = State.get_from_str(states_str)
             numbers = [int(s) for s in numbers_str.split(",")]
-            total_arrangements += get_number_of_arrangements(states, numbers)
+            arrangements = get_number_of_arrangements_recursively(states, numbers)
+            total_arrangements += arrangements
             lines += 1
 
     print("Total:", total_arrangements)  # Works, but actually too slow
