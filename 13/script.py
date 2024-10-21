@@ -14,20 +14,25 @@ class Tile(Enum):
 Pattern = List[List[Tile]]
 
 
-def find_horizontal_symmetry(pattern: Pattern) -> Optional[int]:
+def find_horizontal_symmetry(pattern: Pattern, expected_errors=0) -> Optional[int]:
     """Returned index in the bottom row of the two."""
     for row_idx in range(1, len(pattern)):  # Try all mirror positions
         check_top_row_idx = row_idx - 1
         check_bottom_row_idx = row_idx
-        symmetrical = True
+        errors = 0
         while check_top_row_idx >= 0 and check_bottom_row_idx < len(pattern):
-            if pattern[check_bottom_row_idx] != pattern[check_top_row_idx]:
-                symmetrical = False
+            for col_idx in range(len(pattern[0])):
+                if (
+                    pattern[check_bottom_row_idx][col_idx]
+                    != pattern[check_top_row_idx][col_idx]
+                ):
+                    errors += 1
+            if errors > expected_errors:
                 break
             check_top_row_idx -= 1
             check_bottom_row_idx += 1
 
-        if symmetrical:
+        if errors == expected_errors:
             return row_idx
 
     return None
@@ -49,14 +54,14 @@ def rotate_pattern(pattern: Pattern) -> Pattern:
     return new_pattern
 
 
-def get_score(pattern: Pattern) -> int:
+def get_score(pattern: Pattern, **kwargs) -> int:
     """Get the magic score based on symmetry in the pattern."""
-    score = find_horizontal_symmetry(pattern)
+    score = find_horizontal_symmetry(pattern, **kwargs)
     if score is not None:
         return score * 100
 
     pattern = rotate_pattern(pattern)
-    score = find_horizontal_symmetry(pattern)
+    score = find_horizontal_symmetry(pattern, **kwargs)
     if score is not None:
         return score
 
@@ -78,7 +83,7 @@ def main():
                 done = True
             line = line.strip()
             if not line and pattern and pattern[0]:
-                score = get_score(pattern)
+                score = get_score(pattern, expected_errors=1)
                 total_score += score
                 pattern = []
                 continue
