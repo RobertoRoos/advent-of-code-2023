@@ -1,5 +1,6 @@
 from enum import Enum
 from typing import Tuple, List, Union
+from functools import cache
 
 
 class State(Enum):
@@ -10,14 +11,16 @@ class State(Enum):
     UNKNOWN = "?"
 
     @staticmethod
-    def get_from_str(txt: str) -> List["State"]:
+    def get_from_str(txt: str) -> Tuple["State"]:
         """Parse a string into state instances."""
-        return [State(c) for c in txt]
+        array = [State(c) for c in txt]
+        return tuple(array)
 
 
-StatesList = Union[List[State], Tuple[State]]
+StatesList = Tuple[State]
 
 
+@cache
 def check_and_shorten_arrangement(
     states: StatesList, numbers: List[int]
 ) -> Union[None, Tuple[List[State], List[int]]]:
@@ -55,8 +58,9 @@ def check_and_shorten_arrangement(
     return new_states, new_numbers  # Could well be empty
 
 
+@cache
 def get_number_of_arrangements_recursively(
-    states: StatesList, numbers: List[int]
+    states: StatesList, numbers: Tuple[int]
 ) -> int:
     """Substitute remaining unknowns in `states` to find possible configurations."""
     arrangements = 0
@@ -65,7 +69,8 @@ def get_number_of_arrangements_recursively(
     if result is None:
         return arrangements  # Abort this tree, it already doesn't work
 
-    new_states, new_numbers = result
+    new_states = list(result[0])
+    new_numbers = result[1]
 
     # Find the first unknown state:
     try:
@@ -76,7 +81,7 @@ def get_number_of_arrangements_recursively(
         for option in (State.OPERATIONAL, State.BROKEN):
             new_states[idx] = option  # No need to copy, as `check_...()` does that
             arrangements += get_number_of_arrangements_recursively(
-                new_states, new_numbers
+                tuple(new_states), new_numbers
             )
 
     return arrangements
@@ -93,16 +98,19 @@ def main():
         while line := fh.readline():
             states_str, _, numbers_str = line.strip().partition(" ")
 
+            lines += 1
+            print(f"Line {lines}...")
+
             if part_2:
                 states_str = "?".join([states_str] * 5)
                 numbers_str = ",".join([numbers_str] * 5)
 
             states = State.get_from_str(states_str)
             numbers = [int(s) for s in numbers_str.split(",")]
-            arrangements = get_number_of_arrangements_recursively(states, numbers)
+            arrangements = get_number_of_arrangements_recursively(
+                states, tuple(numbers)
+            )
             total_arrangements += arrangements
-            print("Line:", lines)
-            lines += 1
 
     print("Total:", total_arrangements)  # Works, but actually too slow
 
