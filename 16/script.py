@@ -1,7 +1,10 @@
 import math
 from dataclasses import dataclass
-from typing import List, Tuple, Set
+from typing import List, Tuple, Set, TypeVar
 from enum import Enum
+
+
+T = TypeVar("T")
 
 
 class Direction(Enum):
@@ -16,7 +19,7 @@ class Direction(Enum):
         return Direction(abs(self.value))
 
 
-@dataclass
+@dataclass(frozen=True)
 class Tile:
     """Single tile content.
 
@@ -36,6 +39,15 @@ class Contraption:
         self.rows = 0
         self.cols = 0
         # ^ index as [row][col]
+
+    def copy(self: T) -> T:
+        new = Contraption()
+        new.rows = self.rows
+        new.cols = self.cols
+        new.tiles = [
+            [Tile(char=tile.char, lit=set()) for tile in row] for row in self.tiles
+        ]
+        return new
 
     def add_row(self, txt: str):
         new_row = [Tile(char=char, lit=set()) for col, char in enumerate(txt.strip())]
@@ -94,6 +106,10 @@ class Contraption:
 
         return Direction(new_val)
 
+    def get_lit_tiles(self) -> int:
+        """Get number of tiles that are lit."""
+        return len([tile for row in self.tiles for tile in row if tile.lit])
+
     def print_lit(self):
         for row in self.tiles:
             for tile in row:
@@ -101,6 +117,28 @@ class Contraption:
                 print(char, end="")
             print()
         print()
+
+
+def possible_starts(contraption: Contraption) -> Tuple[Direction, int, int]:
+    """Yield possible starting points."""
+    for start_dir in Direction:
+        # Loop over all starts
+        is_horizontal = abs(start_dir) == Direction.RIGHT
+        rows_or_cols = contraption.rows if is_horizontal else contraption.cols
+        for idx in range(rows_or_cols):
+            if start_dir == Direction.DOWN:
+                row = -1
+                col = idx
+            elif start_dir == Direction.RIGHT:
+                row = idx
+                col = -1
+            elif start_dir == Direction.UP:
+                row = contraption.rows
+                col = idx
+            else:
+                row = idx
+                col = contraption.cols
+            yield start_dir, row, col
 
 
 def main():
@@ -112,13 +150,30 @@ def main():
         while line := fh.readline():
             contraption.add_row(line)
 
+    contraption_orig = contraption.copy()
+
+    # Part 1:
+
     contraption.propagate_light(0, -1, Direction.RIGHT)
 
-    contraption.print_lit()
+    # contraption.print_lit()
 
-    value = len([tile for row in contraption.tiles for tile in row if tile.lit])
+    value = contraption.get_lit_tiles()
 
     print("Number:", value)
+
+    # Part 2:
+
+    max_value = None
+
+    for start_dir, row, col in possible_starts(contraption):
+        contraption_i: Contraption = contraption_orig.copy()
+        contraption_i.propagate_light(row, col, start_dir)
+        value = contraption_i.get_lit_tiles()
+        if max_value is None or value > max_value:
+            max_value = value
+
+    print("Max:", max_value)
 
 
 if __name__ == "__main__":
