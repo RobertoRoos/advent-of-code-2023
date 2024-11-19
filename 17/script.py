@@ -51,8 +51,8 @@ class State:
 class Map:
     """Container for map of city blocks."""
 
-    STRAIGHT_MIN = 0
-    STRAIGHT_MAX = 3
+    STRAIGHT_MIN = 4
+    STRAIGHT_MAX = 10
 
     def __init__(self):
         self.blocks: Dict[Coord, int] = {}
@@ -136,7 +136,10 @@ class Map:
                 if (
                     existing_tile is None or next_tile.cost < existing_tile.cost
                 ):  # Found a better path:
-                    tiles[next_tile.coord][next_tile.info] = next_tile
+                    if next_tile.info.straight_steps >= self.STRAIGHT_MIN:
+                        tiles[next_tile.coord][next_tile.info] = next_tile
+                        # If the step wasn't valid, don't add it to cache
+                        # But do continue the tip, as we'll need to walk further
                     tips.put(next_tile)
 
                     # self.print_tiles(tiles)
@@ -153,8 +156,19 @@ class Map:
                 coord = Coord(row, col)
                 weight = self.blocks[coord]
                 print(weight, end="")
-                count_str = f"({len(tiles[coord])})" if coord in tiles else "   "
+
+                if coord in tiles and tiles[coord]:
+                    options = tiles[coord]
+                    count_str = f"({len(options)})"
+                    score_min = min(tile.cost for tile in options.values())
+                    score_str = f"[{score_min}]\t"
+                else:
+                    count_str = "   "
+                    score_str = "\t\t"
+
                 print(count_str, end="")
+                print(score_str, end="")
+
                 print("\t", end="")
             print()
         print()
