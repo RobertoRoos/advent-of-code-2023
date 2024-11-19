@@ -1,6 +1,6 @@
 import unittest
 
-from script import Map, Coord, State, CoordExtras, Direction
+from script import Map, Coord, State, PathInfo, Direction
 
 
 class Day17TestCase(unittest.TestCase):
@@ -16,21 +16,22 @@ class Day17TestCase(unittest.TestCase):
                 State(
                     cost=0,
                     coord=Coord(0, 0),
-                    extras=CoordExtras(straight_steps=0, direction=None),
+                    info=PathInfo(straight_steps=0, direction=None),
                 )
             )
         )
         next_coords = set(tile.coord for tile in next_tiles)
         self.assertEqual({Coord(0, 1), Coord(1, 0)}, next_coords)
-        next_steps = list(tile.extras.straight_steps for tile in next_tiles)
+        next_steps = list(tile.info.straight_steps for tile in next_tiles)
         self.assertEqual([1, 1], next_steps)
+        # The first tile is not counted as going straight
 
     def test_next_coord_middle(self):
         next_tiles = self.map.get_next_coords(
             State(
                 cost=0,
                 coord=Coord(2, 2),
-                extras=CoordExtras(straight_steps=0, direction=Direction.SOUTH),
+                info=PathInfo(straight_steps=0, direction=Direction.SOUTH),
             )
         )
         next_coords = set(tile.coord for tile in next_tiles)
@@ -41,7 +42,7 @@ class Day17TestCase(unittest.TestCase):
             State(
                 cost=0,
                 coord=Coord(3, 3),
-                extras=CoordExtras(straight_steps=3, direction=Direction.EAST),
+                info=PathInfo(straight_steps=3, direction=Direction.EAST),
             )
         )
         next_coords = set(tile.coord for tile in next_tiles)
