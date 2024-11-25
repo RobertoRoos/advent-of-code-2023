@@ -28,6 +28,7 @@ class DigPlan:
         self.vertices: ListCoords = []
         self.range_min = np.array([0, 0])  # x, y
         self.range_max = np.array([0, 0])  # x, y
+        self.border_size: int = 0  # Number of points on the border
 
     def add_instruction(self, line: str):
         """Add a dig step."""
@@ -38,6 +39,36 @@ class DigPlan:
         # When tip is a new [0, 0] it's not added yet, the last will also be [0, 0]
         tip += step * int(count)
         self.vertices.append(tip)
+        self._track_range(tip)
+
+    @staticmethod
+    def _direction_from_int(num) -> Direction:
+        if num == 0:
+            return Direction.RIGHT
+        if num == 1:
+            return Direction.DOWN
+        if num == 2:
+            return Direction.LEFT
+        return Direction.UP
+
+    def add_instruction_hex(self, line: str):
+        """Add a dig step."""
+        _, _, color = line.strip().split(" ")
+        color = color.lstrip("(").rstrip(")")
+
+        count = int(color[1:6], 16)
+        direction_int = int(color[6])
+        direction = self._direction_from_int(direction_int)
+
+        step = direction_to_coord[direction]
+        tip = self.vertices[-1].copy() if self.vertices else np.array([0, 0])
+        # When tip is a new [0, 0] it's not added yet, the last will also be [0, 0]
+        tip += step * int(count)
+        self.vertices.append(tip)
+        self._track_range(tip)
+        self.border_size += count
+
+    def _track_range(self, tip):
         for i in (0, 1):
             self.range_min[i] = np.min(np.array([self.range_min[i], tip[i]]))
             self.range_max[i] = np.max(np.array([self.range_max[i], tip[i]]))
@@ -82,7 +113,7 @@ class DigPlan:
         area = -1.0 * det_sum / 2.0
         # Shoelace theorem, but vertices are clockwise, so negate
 
-        border_points = len(list(self.border))
+        border_points = self.border_size
 
         interior_points = area - 0.5 * border_points + 1
 
@@ -95,7 +126,8 @@ def main():
 
     with open("input.txt", "r") as fh:
         while line := fh.readline():
-            plan.add_instruction(line)
+            # plan.add_instruction(line)
+            plan.add_instruction_hex(line)
 
     # plan.print()  # 52231 for part 1
 
