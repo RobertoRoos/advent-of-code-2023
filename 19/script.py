@@ -89,11 +89,7 @@ class Workflow:
 
     @classmethod
     def process(cls, part: Part) -> bool:
-        """
-
-        :param part:
-        :return: True for accepted, False otherwise
-        """
+        """True for accepted, False otherwise."""
         next_workflow_name = "in"
         while next_workflow_name:
             workflow = cls.book[next_workflow_name]
@@ -104,11 +100,26 @@ class Workflow:
             elif next_workflow_name == "R":
                 return False
 
+    @classmethod
+    def process_reverse(cls, workflows: Optional[List["Workflow"]] = None) -> int:
+        """Count the number of parts that could be accepted by working backwards from all acceptations.
+
+        Uses recursion to walk back.
+        """
+        count = 0
+        if workflows is None:
+            workflows = []
+            for w in cls.book.values():
+                if any(r.next_workflow_name == "A" for r in w.rules):
+                    workflows.append(w)
+
+        return count
+
 
 def main():
     parts: List[Part] = []
 
-    with open("input.txt", "r") as fh:
+    with open("input_example.txt", "r") as fh:
         while line := fh.readline():
             # Workflows
             if not line.strip():
@@ -121,13 +132,17 @@ def main():
             part = Part.parse(line)
             parts.append(part)
 
-    value = 0
+    # value = 0
+    #
+    # for part in parts:
+    #     if Workflow.process(part):
+    #         value += part.rating_sum
+    #
+    # print("Score:", value)  # 368964
 
-    for part in parts:
-        if Workflow.process(part):
-            value += part.rating_sum
+    number_options = Workflow.process_reverse()
 
-    print("Score:", value)
+    return
 
 
 if __name__ == "__main__":
