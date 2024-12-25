@@ -1,4 +1,4 @@
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Set
 from dataclasses import dataclass
 from enum import Enum
 
@@ -29,6 +29,25 @@ class Part:
     @property
     def rating_sum(self) -> int:
         return sum(v for v in self.ratings.values())
+
+
+@dataclass
+class PartRange:
+    """A range of parts, with multiple possible rating values."""
+
+    ratings: Dict[Category, Set[int]]
+
+    @classmethod
+    def make_new(cls) -> "PartRange":
+        return cls(ratings={c: set(range(1, 4_000 + 1)) for c in Category})
+
+    def add(self, other_range: "PartRange"):
+        """Include another range into this."""
+        for c, r in other_range.ratings:
+            if c in self.ratings:
+                self.ratings[c] = self.ratings[c].union(r)
+            else:
+                self.ratings[c] = r
 
 
 @dataclass
@@ -81,11 +100,19 @@ class Workflow:
         cls.book[name] = workflow
 
     def get_next(self, part: Part) -> str:
+        """Parse a part through the rules, finding the next workflow."""
         for rule in self.rules:
             if rule.match(part):
                 return rule.next_workflow_name
 
         raise ValueError("Not a single rule matched")
+
+    def get_previous(self, part_range) -> Dict[str, PartRange]:
+        """Take a range of possible parts and split it backwards to previous workflows.
+
+        :return: Names of the workflows before and their possible ranges.
+        """
+        return {}
 
     @classmethod
     def process(cls, part: Part) -> bool:
@@ -101,22 +128,43 @@ class Workflow:
                 return False
 
     @classmethod
-    def process_reverse(cls, workflows: Optional[List["Workflow"]] = None) -> int:
-        """Count the number of parts that could be accepted by working backwards from all acceptations.
+    def process_reverse(
+        cls,
+        heads: List[str],
+        workflows_part_ranges: Optional[Dict[str, PartRange]] = None,
+    ):
+        """Track the possible ratings to get accepted.
 
         Uses recursion to walk back.
         """
-        count = 0
-        if workflows is None:
-            workflows = []
-            for w in cls.book.values():
-                if any(r.next_workflow_name == "A" for r in w.rules):
-                    workflows.append(w)
+        if workflows_part_ranges is None:
+            workflows_part_ranges = {h: PartRange.make_new() for h in heads}
 
-        return count
+        new_heads = []
+
+        for workflow_name in heads:
+            workflow = Workflow.book[workflow_name]
+            this_ranges = workflows_part_ranges[workflow_name]
+            new_workflow_part_ranges = workflow.get_previous(this_ranges)
+            for next_name, next_ranges in new_workflow_part_ranges.items():
+                if next_name not in workflows_part_ranges:
+                    workflows_part_ranges[next_name] = next_ranges
+                else:
+                    workflows_part_ranges[next_name].add(next_ranges)
+                new_heads.append(next_name)
+
+        if new_heads:
+            cls.process_reverse(new_heads, workflows_part_ranges)
+        else:
+            return workflows_part_ranges["in"]
 
 
 def main():
+
+    # Add accepted and rejected as workflows:
+    Workflow.book["A"] = Workflow(name="A", rules=[])
+    Workflow.book["R"] = Workflow(name="R", rules=[])
+
     parts: List[Part] = []
 
     with open("input_example.txt", "r") as fh:
@@ -140,7 +188,7 @@ def main():
     #
     # print("Score:", value)  # 368964
 
-    number_options = Workflow.process_reverse()
+    ranges = Workflow.process_reverse(heads=["A"])
 
     return
 
