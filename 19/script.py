@@ -1,4 +1,4 @@
-from typing import Dict, Optional, List, Set, Tuple
+from typing import Dict, Optional, List, Set, Tuple, Generator
 from dataclasses import dataclass
 from enum import Enum
 
@@ -106,7 +106,9 @@ class Rule:
         range_not_match = PartRange.new_none()
         for c, values in part_range.ratings.items():
             if c != self.category:
-                range_match.ratings[c] = values  # Don't split the values of other categories
+                range_match.ratings[c] = (
+                    values  # Don't split the values of other categories
+                )
                 range_not_match.ratings[c] = values
         for v in part_range.ratings[self.category]:
             if self.do_compare(v):
@@ -157,37 +159,36 @@ class Workflow:
             elif next_workflow_name == "R":
                 return False
 
-    def get_next_ranges(self, part_range: PartRange) -> Dict[str, PartRange]:
+    def get_next_ranges(
+        self, part_range: PartRange
+    ) -> Generator[Tuple[str, PartRange], None, None]:
         """Process a part range, splitting them over the next workflows."""
-        result = {}
         part_range_not_match = part_range
         for rule in self.rules:
-            part_range_match, part_range_not_match = rule.split_range(part_range_not_match)
-            result[rule.next_workflow_name] = part_range_match
+            part_range_match, part_range_not_match = rule.split_range(
+                part_range_not_match
+            )
+            yield rule.next_workflow_name, part_range_match
 
-        return result
+    def process_range(self, part_range: PartRange) -> int:
+        """Put a range of parts through the book and get the number of accepted values.
 
-    def process_range(self, part_range: PartRange) -> Optional[PartRange]:
-        """Put a range of parts through the book.
+        We can check only the number of paths because none of the paths overlap, no need
+        to union the set of ranges.
 
         Workflows are handled through recursion.
         """
         if self.name == "A":
-            print(f"Count {self.name}: {part_range.count:,}")
-            return part_range
+            return part_range.count
         if self.name == "R":
-            print(f"Count {self.name}: {part_range.count:,}")
-            return PartRange.new_none()
+            return 0
 
-        final_part_range = PartRange.new_none()
+        final_part_range = 0
 
-        next_workflows_part_ranges = self.get_next_ranges(part_range)
-        for next_name, next_range in next_workflows_part_ranges.items():
+        for next_name, next_range in self.get_next_ranges(part_range):
             next_workflow = self.book[next_name]
             new_part_range = next_workflow.process_range(next_range)
-            final_part_range.add(new_part_range)
-
-        print(f"Count {self.name}: {final_part_range.count:,}")
+            final_part_range += new_part_range
 
         return final_part_range
 
@@ -203,7 +204,7 @@ def main():
 
     parts: List[Part] = []
 
-    with open("input_example.txt", "r") as fh:
+    with open("input.txt", "r") as fh:
         while line := fh.readline():
             # Workflows
             if not line.strip():
@@ -216,21 +217,10 @@ def main():
             part = Part.parse(line)
             parts.append(part)
 
-    # value = 0
-    #
-    # for part in parts:
-    #     if Workflow.process(part):
-    #         value += part.rating_sum
-    #
-    # print("Score:", value)  # 368964
-
     all_parts = PartRange.new_all()
-    final_range = Workflow.book["rfg"].process_range(all_parts)
+    final_count = Workflow.book["in"].process_range(all_parts)
 
-    final_count = final_range.count
     print(f"Count: {final_count:,} ({final_count})")
-
-    return
 
 
 if __name__ == "__main__":
