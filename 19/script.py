@@ -1,4 +1,4 @@
-from typing import Dict, Optional, List, Set
+from typing import Dict, Optional, List, Set, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -38,16 +38,27 @@ class PartRange:
     ratings: Dict[Category, Set[int]]
 
     @classmethod
-    def make_new(cls) -> "PartRange":
+    def new_all(cls) -> "PartRange":
         return cls(ratings={c: set(range(1, 4_000 + 1)) for c in Category})
+
+    @classmethod
+    def new_none(cls) -> "PartRange":
+        return cls(ratings={c: set() for c in Category})
 
     def add(self, other_range: "PartRange"):
         """Include another range into this."""
-        for c, r in other_range.ratings:
+        for c, r in other_range.ratings.items():
             if c in self.ratings:
                 self.ratings[c] = self.ratings[c].union(r)
             else:
                 self.ratings[c] = r
+
+    @property
+    def count(self) -> int:
+        p = 1
+        for v in self.ratings.values():
+            p *= len(v)
+        return p
 
 
 @dataclass
@@ -70,14 +81,40 @@ class Rule:
 
         return rule
 
+    def do_compare(self, value: int) -> bool:
+        if self.compare == ">":
+            return value > self.threshold
+        if self.compare == "<":
+            return value < self.threshold
+        raise ValueError(f"Unrecognized symbol: {self.compare}")
+
     def match(self, part: Part) -> bool:
         if self.category is None:
-            return True  # Final clause
+            return True  # Final clause ("else")
 
-        part_value = part.ratings[self.category]
-        if self.compare == ">":
-            return part_value > self.threshold
-        return part_value < self.threshold
+        return self.do_compare(part.ratings[self.category])
+
+    def split_range(self, part_range: PartRange) -> Tuple[PartRange, PartRange]:
+        """
+
+        :return: Range that matches this rule and then the range that remains.
+        """
+        if self.category is None:  # Final "else" clause
+            return part_range, PartRange.new_none()
+
+        range_match = PartRange.new_none()
+        range_not_match = PartRange.new_none()
+        for c, values in part_range.ratings.items():
+            if c != self.category:
+                range_match.ratings[c] = values  # Don't split the values of other categories
+                range_not_match.ratings[c] = values
+        for v in part_range.ratings[self.category]:
+            if self.do_compare(v):
+                range_match.ratings[self.category].add(v)
+            else:
+                range_not_match.ratings[self.category].add(v)
+
+        return range_match, range_not_match
 
 
 class Workflow:
@@ -107,13 +144,6 @@ class Workflow:
 
         raise ValueError("Not a single rule matched")
 
-    def get_previous(self, part_range) -> Dict[str, PartRange]:
-        """Take a range of possible parts and split it backwards to previous workflows.
-
-        :return: Names of the workflows before and their possible ranges.
-        """
-        return {}
-
     @classmethod
     def process(cls, part: Part) -> bool:
         """True for accepted, False otherwise."""
@@ -127,36 +157,42 @@ class Workflow:
             elif next_workflow_name == "R":
                 return False
 
-    @classmethod
-    def process_reverse(
-        cls,
-        heads: List[str],
-        workflows_part_ranges: Optional[Dict[str, PartRange]] = None,
-    ):
-        """Track the possible ratings to get accepted.
+    def get_next_ranges(self, part_range: PartRange) -> Dict[str, PartRange]:
+        """Process a part range, splitting them over the next workflows."""
+        result = {}
+        part_range_not_match = part_range
+        for rule in self.rules:
+            part_range_match, part_range_not_match = rule.split_range(part_range_not_match)
+            result[rule.next_workflow_name] = part_range_match
 
-        Uses recursion to walk back.
+        return result
+
+    def process_range(self, part_range: PartRange) -> Optional[PartRange]:
+        """Put a range of parts through the book.
+
+        Workflows are handled through recursion.
         """
-        if workflows_part_ranges is None:
-            workflows_part_ranges = {h: PartRange.make_new() for h in heads}
+        if self.name == "A":
+            print(f"Count {self.name}: {part_range.count:,}")
+            return part_range
+        if self.name == "R":
+            print(f"Count {self.name}: {part_range.count:,}")
+            return PartRange.new_none()
 
-        new_heads = []
+        final_part_range = PartRange.new_none()
 
-        for workflow_name in heads:
-            workflow = Workflow.book[workflow_name]
-            this_ranges = workflows_part_ranges[workflow_name]
-            new_workflow_part_ranges = workflow.get_previous(this_ranges)
-            for next_name, next_ranges in new_workflow_part_ranges.items():
-                if next_name not in workflows_part_ranges:
-                    workflows_part_ranges[next_name] = next_ranges
-                else:
-                    workflows_part_ranges[next_name].add(next_ranges)
-                new_heads.append(next_name)
+        next_workflows_part_ranges = self.get_next_ranges(part_range)
+        for next_name, next_range in next_workflows_part_ranges.items():
+            next_workflow = self.book[next_name]
+            new_part_range = next_workflow.process_range(next_range)
+            final_part_range.add(new_part_range)
 
-        if new_heads:
-            cls.process_reverse(new_heads, workflows_part_ranges)
-        else:
-            return workflows_part_ranges["in"]
+        print(f"Count {self.name}: {final_part_range.count:,}")
+
+        return final_part_range
+
+    def __repr__(self) -> str:
+        return f"<Workflow '{self.name}'>"
 
 
 def main():
@@ -188,7 +224,11 @@ def main():
     #
     # print("Score:", value)  # 368964
 
-    ranges = Workflow.process_reverse(heads=["A"])
+    all_parts = PartRange.new_all()
+    final_range = Workflow.book["rfg"].process_range(all_parts)
+
+    final_count = final_range.count
+    print(f"Count: {final_count:,} ({final_count})")
 
     return
 
